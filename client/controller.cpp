@@ -8,160 +8,7 @@
 #include <vector>
 #include <cassert>
 
-enum class MessageType : uint8_t {
-    HEL = 1,
-    TRY = 2,
-    RES = 3,
-    BYE = 4,
-    ERR = 5
-};
-
-class Message {
-    MessageType type;      
-    int16_t numSeq;
-    std::vector<uint8_t> arr;
-    // CheckSum so eh calculado no envio e no recebimento
-
-    size_t getSizeMessage() const {
-        return (this->type == MessageType::TRY || this->type == MessageType::RES) ? 12 : 4;
-    }
-
-public:
-    Message() = default;
-
-    Message(MessageType type, int16_t numSeq, std::vector<uint8_t> arr) {
-        this->type = type;
-        this->numSeq = numSeq;
-        this->arr = arr;
-    }
-
-    MessageType getType() const {
-        return this->type;
-    }
-
-    int16_t getNumSeq() const {
-        return this->numSeq;
-    }
-
-    std::vector<uint8_t> getArr() const {
-        return this->arr;
-    }
-
-    std::vector<uint8_t> serialize() const {
-        size_t size_message = getSizeMessage();
-        std::vector<uint8_t> buffer(size_message);
-
-        buffer[0] = (uint8_t) type;
-    
-        int16_t numSeqToNet = htons(numSeq);
-        std::memcpy(&buffer[2], &numSeqToNet, 2);
-
-        if (size_message == 12 and arr.size() >= 8){
-            std::memcpy(&buffer[4], arr.data(), 8);
-        } 
-    
-        uint8_t checkSum = 0;
-        for (uint8_t byte : buffer) {
-            checkSum ^= byte;
-        }
-
-        buffer[1] = checkSum;
-        return buffer;
-    }
-
-    static Message desserialize(std::vector<uint8_t> &buffer){
-        Message msg;
-        msg.type = (MessageType) buffer[0];
-
-        int16_t numSeqFromNet;
-        std::memcpy(&numSeqFromNet, &buffer[2], 2);
-        msg.numSeq = ntohs(numSeqFromNet);
-
-        if (buffer.size() == 12){
-            msg.arr.resize(8);
-            std::memcpy(msg.arr.data(), &buffer[4], 8);
-        }
-        return msg;
-    }
-
-    static bool isValidMessage(std::vector<uint8_t>& buffer){
-        uint8_t val = 0;
-        for(uint8_t byte : buffer) val ^= byte;
-        return val == 0;
-    }
-};
-
-class Communication {
-
-    int sockfd = -1;
-    sockaddr_in serverAddress;
-
-public:
-    Communication() = default;
-
-    Communication(const char* serverAddress, int port) {
-        this->sockfd = socket(AF_INET, SOCK_DGRAM, 0); 
-
-        this->serverAddress = {
-            .sin_family = AF_INET,
-            .sin_port = htons(port)
-        };
-
-        if(inet_pton(AF_INET, serverAddress, &this->serverAddress.sin_addr) <= 0) {
-            std::cerr << "Invalid address" << std::endl;
-        }
-    }
-
-    ~Communication() {
-        this->closeConnection();
-    }
-
-    void sendMessage(const Message& msg) {
-        std::vector<uint8_t> buffer = msg.serialize();
-        if(buffer.size() == 0){
-            std::cerr << "Empty message" << std::endl;
-            return;
-        }
-
-        size_t numBytesSent = sendto(
-            this->sockfd,
-            buffer.data(),
-            buffer.size(),
-            0,
-            (sockaddr*) &this->serverAddress,
-            sizeof(this->serverAddress)
-        );
-
-        if (numBytesSent < 0) std::cerr << "Failed to send the message" << std::endl;
-        else std::cout << "Sent " << numBytesSent << " bytes" << std::endl;  
-    }
-    
-    Message receiveMessage(int expectedSize){
-        std::vector<uint8_t> buffer(expectedSize);
-        socklen_t addrLen = sizeof(this->serverAddress);
-
-        size_t numBytesReceived = recvfrom(
-            this->sockfd,
-            buffer.data(),
-            expectedSize, 
-            0,
-            (sockaddr*) &this->serverAddress,
-            &addrLen
-        );
-
-        if (numBytesReceived < 0) std::cerr << "Failed to receive the message" << std::endl;
-        else std::cout << "Receive " << numBytesReceived << " bytes" << std::endl;
-    
-        if(not Message::isValidMessage(buffer)) {
-            std::cerr << "Message corrupted" << std::endl;
-        }
-        return Message::desserialize(buffer);
-    }
-
-    void closeConnection(){
-        if (this->sockfd >= 0) close(this->sockfd), this->sockfd = -1;
-    }
-};
+#include "../utils/communication.cpp"
 
 class Controller {
 
@@ -242,7 +89,7 @@ class Controller {
     std::pair<int, std::string> receiveFromTry() {
         Message msg = comm.receiveMessage(12);
         std::string verification(8, ' ');
-        std::memcpy(verification.data(), msg.getArr().data(), msg.getArr().size());
+        std::memcpy((void*) verification.data(), msg.getArr().data(), msg.getArr().size());
         while (verification.back() == ' ') 
             verification.pop_back();
         return {msg.getNumSeq(), verification};
@@ -251,7 +98,7 @@ class Controller {
     std::pair<int, int> receiveParams(){
         Message msg = comm.receiveMessage(12);
         std::string pass(8, ' ');
-        std::memcpy(pass.data(), msg.getArr().data(), msg.getArr().size());
+        std::memcpy((void*) pass.data(), msg.getArr().data(), msg.getArr().size());
         int sizePass = 0;
         for(char ch : pass) {
             if(ch != '?') break;
