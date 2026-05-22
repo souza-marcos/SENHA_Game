@@ -79,10 +79,12 @@ public:
                 Message msg = comm.receiveMessage(12);
                 std::string senderID = comm.getSenderID();
                 
-                if (msg.getType() == MessageType::HEL && activeClients.find(senderID) == activeClients.end())
-                    activeClients[senderID] = ClientState{};
+                if(!activeClients.count(senderID)){
+                    if (msg.getType() != MessageType::HEL)
+                        continue;
 
-                if (activeClients.find(senderID) == activeClients.end()) continue;
+                    activeClients[senderID] = ClientState();
+                }
 
                 ClientState& curState = activeClients[senderID];
                 
