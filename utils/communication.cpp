@@ -1,3 +1,5 @@
+// Iago Zagnoli Albergaria e Marcos Daniel Souza Netto
+
 #include "message.cpp"
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -127,6 +129,8 @@ public:
             
             throw CommunicationFailed();
         }
+
+        buffer.resize(numBytesReceived);
         
         if (not Message::isValidMessage(buffer)) throw CorruptedMessage();
         
@@ -135,6 +139,15 @@ public:
 
     void closeConnection(){
         if (this->sockfd >= 0) close(this->sockfd), this->sockfd = -1;
+    }
+
+    std::string getSenderID() const {
+        char ipStr[INET_ADDRSTRLEN];
+        inet_ntop(AF_INET, &(this->ipAddress.sin_addr), ipStr, INET_ADDRSTRLEN);
+        
+        int clientPort = ntohs(this->ipAddress.sin_port);
+        
+        return std::string(ipStr) + ":" + std::to_string(clientPort);
     }
 
     static std::vector<uint8_t> packText(std::string s) {

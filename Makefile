@@ -1,3 +1,5 @@
+# Iago Zagnoli Albergaria e Marcos Daniel Souza Netto
+
 CC = g++
 CFLAGS = -Wall -O2 -fsanitize=address -std=c++17
 

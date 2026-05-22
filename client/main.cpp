@@ -1,3 +1,5 @@
+// Iago Zagnoli Albergaria e Marcos Daniel Souza Netto
+
 #include <iostream>
 #include <string>
 #include "controller.cpp"
@@ -16,7 +18,7 @@ int main(int argc, char* argv[]) {
         client.run();
         
     } catch (const NoResponseException& e) {
-        std::cerr << "NO RES" << std::endl;
+        std::cout << "NO RES" << std::endl;
     }
     catch (const std::exception& e) {
         std::cerr << e.what() << std::endl;

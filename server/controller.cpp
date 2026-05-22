@@ -1,3 +1,5 @@
+// Iago Zagnoli Albergaria e Marcos Daniel Souza Netto
+
 #include <iostream>
 #include <string>
 #include <vector>
@@ -7,6 +9,13 @@
 #include "../utils/communication.cpp"
 
 #define sz(x) (int) x.size()
+
+struct ClientState {
+    int lastClientSeq = 0;
+    int curNumberAttempt = 0;
+    Message lastRes;
+    bool active = true;
+};
 
 class Controller {
     Communication comm;
@@ -62,51 +71,65 @@ public:
     }
 
     void run() {
-        int lastClientSeq = 0;
-        int curNumberAttempt = 0;
-        Message lastRes;
-        bool clientActive = true;
+        std::map<std::string, ClientState> activeClients;
+        int finishedClients = 0;
 
-        while (clientActive) {
+        while (finishedClients < 2) {
             // try {
                 Message msg = comm.receiveMessage(12);
-                std::string guess;
+                std::string senderID = comm.getSenderID();
+                
+                if (msg.getType() == MessageType::HEL && activeClients.find(senderID) == activeClients.end())
+                    activeClients[senderID] = ClientState{};
+
+                if (activeClients.find(senderID) == activeClients.end()) continue;
+
+                ClientState& curState = activeClients[senderID];
+                
+                if (!curState.active) {
+                    if (msg.getType() == MessageType::BYE) {
+                        comm.sendMessage(curState.lastRes);
+                    }
+                    continue;
+                }
+
+                std::string guess; 
 
                 switch (msg.getType()){
                     case MessageType::HEL:
-                        lastRes = Message(MessageType::RES, numberAttempts, Communication::packText(std::string(sizePass, '?')));
-                        comm.sendMessage(lastRes);
-
+                        curState.lastRes = Message(MessageType::RES, numberAttempts, Communication::packText(std::string(sizePass, '?')));
+                        comm.sendMessage(curState.lastRes);
                         break;
 
                     case MessageType::TRY: 
-                        if (msg.getNumSeq() <= lastClientSeq) {    
-                            comm.sendMessage(lastRes);
+                        if (msg.getNumSeq() <= curState.lastClientSeq) {    
+                            comm.sendMessage(curState.lastRes);
                             continue;
                         }
 
-                        if (msg.getNumSeq() != lastClientSeq + 1 || curNumberAttempt >= numberAttempts) {
+                        if (msg.getNumSeq() != curState.lastClientSeq + 1 || curState.curNumberAttempt >= numberAttempts) {
                             comm.sendMessage(Message(MessageType::ERR, 0, {}));
                             continue;
                         }
                         
                         guess = Communication::unpackText(msg.getArr());
                         if (!isValidPassword(guess) or sz(guess)!= sizePass) {
-                            lastRes = Message(MessageType::ERR, msg.getNumSeq(), {});
-                            comm.sendMessage(lastRes);
+                            curState.lastRes = Message(MessageType::ERR, msg.getNumSeq(), {});
+                            comm.sendMessage(curState.lastRes);
                         } else {
-                            lastClientSeq = msg.getNumSeq();
-                            curNumberAttempt++;
+                            curState.lastClientSeq = msg.getNumSeq();
+                            curState.curNumberAttempt++;
                             std::string feedBack = getFeedback(guess);
-                            lastRes = Message(MessageType::RES, numberAttempts - curNumberAttempt, Communication::packText(feedBack));
-                            comm.sendMessage(lastRes);
+                            curState.lastRes = Message(MessageType::RES, numberAttempts - curState.curNumberAttempt, Communication::packText(feedBack));
+                            comm.sendMessage(curState.lastRes);
                         }
                         break;
 
                     case MessageType::BYE:
-                        lastRes = Message(MessageType::RES, -1, Communication::packText(pass));
-                        comm.sendMessage(lastRes);
-                        clientActive = false;
+                        curState.lastRes = Message(MessageType::RES, -1, Communication::packText(pass));
+                        comm.sendMessage(curState.lastRes);
+                        curState.active = false; 
+                        finishedClients++;
                         break;
 
                     default:
