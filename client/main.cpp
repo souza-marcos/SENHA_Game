@@ -4,6 +4,10 @@
 #include <string>
 #include "controller.cpp"
 
+/**
+ * Código principal do cliente. Aqui faz o parser da entrada a partir dos args.
+ * E chama Controller.run do cliente que tem a lógica do jogo.
+ */
 int main(int argc, char* argv[]) {
     if (argc != 3) {
         std::cerr << "Uso: " << argv[0] << " <host> <porto>" << std::endl;

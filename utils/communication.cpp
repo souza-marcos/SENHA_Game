@@ -40,6 +40,7 @@ class Communication {
 public:
     Communication() = default;
 
+    // Realiza o bind se uma porta para escutar conexões. Usado no servidor.
     Communication(int port) {
         this->sockfd = socket(AF_INET, SOCK_DGRAM, 0); 
         if (this->sockfd < 0) throw CommunicationFailed();
@@ -54,6 +55,7 @@ public:
         }
     }
 
+    // Conecta a endereço:porta para iniciar uma conexão. Usado no cliente.
     Communication(const char* ipAddress, int port) {
         this->sockfd = socket(AF_INET, SOCK_DGRAM, 0); 
 
@@ -71,6 +73,7 @@ public:
         this->closeConnection();
     }
 
+    // Configura o tempo de timeout, espera no processo de stop-and-wait
     void setRecTimeout(int secs) {
         timeval tv;
         tv.tv_sec = secs;
@@ -81,6 +84,7 @@ public:
         }
     }
 
+    // Envia mensagem.
     void sendMessage(const Message& msg) {
         std::vector<uint8_t> buffer = msg.serialize();
         
@@ -96,6 +100,7 @@ public:
         if (numBytesSent < 0) throw CommunicationFailed();
     }
 
+    // Envia mensagem e espera resposta. Caso a mensagem chegue errada ou dê timout, é feita novas tentativas.
     Message sendWithRetry(const Message& msg, int expectedSize, int maxRetries) {
         for (int i = 0; i <= maxRetries; ++i) {
             try {
@@ -110,6 +115,7 @@ public:
         throw NoResponseException();
     }
     
+    // Recebe mensagem
     Message receiveMessage(int expectedSize){
         std::vector<uint8_t> buffer(expectedSize);
         socklen_t addrLen = sizeof(this->ipAddress);
@@ -150,12 +156,14 @@ public:
         return std::string(ipStr) + ":" + std::to_string(clientPort);
     }
 
+    // Função auxiliar para transformar uma string no buffer pronto para empacotar na mensagem 
     static std::vector<uint8_t> packText(std::string s) {
         std::vector<uint8_t> buffer(8, 0);
         std::memcpy(buffer.data(), s.data(), std::min((size_t)8, s.size()));
         return buffer;
     }
 
+    // Função auxiliar para recuperar a string a partir do buffer da mensagem.
     static std::string unpackText(std::vector<uint8_t> buffer){
         std::string s(buffer.begin(), buffer.end());
         while (not s.empty() and (s.back() == '\0' or s.back() == ' '))

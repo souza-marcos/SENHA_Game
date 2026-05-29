@@ -17,12 +17,20 @@ struct ClientState {
     bool active = true;
 };
 
-class Controller {
-    Communication comm;
-    std::string pass;
-    int numberAttempts;
-    int sizePass;
 
+/**
+ * Lógica do jogo. A partir das variáveis globais que definem o estado atual do jogo, e funções auxiliares, 
+ * o código principal para o servidor fica no .run()
+ */
+class Controller {
+    Communication comm; // Gerencia a comunicação. Realizando o proceso de stop-and-wait para cada mensagem.
+    std::string pass;   // senha a descoberta
+    int numberAttempts; // quantidade de tentativas restantes
+    int sizePass;       // tamanho da senha
+
+    /**
+     * Verificar se uma senha é válida.
+     */
     bool isValidPassword(const std::string& p) {
         if (p.size() < 4 or p.size() > 8) return false;
         std::vector<bool> seen(10, false);
@@ -34,6 +42,9 @@ class Controller {
         return true;
     }
 
+    /**
+     * Gera uma senha válida de acordo com o tamanho de forma aleatória.
+     */
     std::string generateRandomPassword(int size) {
         std::vector<int> digits = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
         std::mt19937 rng(time(nullptr));
@@ -44,6 +55,9 @@ class Controller {
         return res;
     }
 
+    /** 
+     * Recupera a string que indica quão bem foi uma tentativa
+     */
     std::string getFeedback(const std::string& guess) {
         std::string res(sizePass, '-');
         for (int i = 0; i < std::min(sizePass, sz(guess)); i ++) {
@@ -63,7 +77,8 @@ public:
         };
         this->sizePass = pass.size();
 
-        if (allZeros) this->pass = generateRandomPassword(sizePass);
+        // Gera senha aleatória somente quando a senha informada é inteiramente de zeros.
+        if (allZeros) this->pass = generateRandomPassword(sizePass); 
         else {
             if (!isValidPassword(pass)) exit(1);
             this->pass = pass;
@@ -73,7 +88,7 @@ public:
     void run() {
         std::map<std::string, ClientState> activeClients;
         int finishedClients = 0;
-
+        
         while (finishedClients < 2) {
             // try {
                 Message msg = comm.receiveMessage(12);

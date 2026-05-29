@@ -5,6 +5,10 @@
 #include <vector>
 #include "controller.cpp"
 
+/**
+ * Código principal do servidor. Aqui faz o parser da entrada a partir dos args.
+ * E chama Controller.run do servidor que tem a lógica do jogo.
+ */
 int main(int argc, char* argv[]) {
     try {
         if (argc != 4) {

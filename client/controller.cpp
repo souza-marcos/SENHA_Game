@@ -6,6 +6,11 @@
 #include <cstdio>
 #include "../utils/communication.cpp"
 
+
+/**
+ * Lógica do jogo. A partir das variáveis globais que definem o estado atual do jogo, e funções auxiliares, 
+ * o código principal para o cliente fica no .run()
+ */
 class Controller {
     Communication comm;
 
